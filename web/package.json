@@ -1,0 +1,41 @@
+{
+  "name": "quarkus-ecs-example",
+  "version": "1.0.0",
+  "description": "Quarkus AWS ECS Example",
+  "module": "index.js",
+  "files": [
+    "dist/"
+  ],
+  "scripts": {
+    "type-check": "tsc --noEmit",
+    "type-check:watch": "npm run type-check -- --watch",
+    "build": "webpack",
+    "watch": "webpack --watch",
+    "start": "webpack-dev-server"
+  },
+  "author": "",
+  "license": "Unlicense",
+  "dependencies": {
+    "@material-ui/core": "^4.6.0",
+    "@material-ui/icons": "^4.5.1",
+    "@material-ui/styles": "^4.6.0",
+    "lit-element": "^2.2.1",
+    "preact": "^10.0.4"
+  },
+  "devDependencies": {
+    "@types/webpack-env": "^1.14.0",
+    "autoprefixer": "^9.6.1",
+    "css-loader": "^3.2.0",
+    "file-loader": "^4.2.0",
+    "html-loader": "^0.5.5",
+    "html-webpack-plugin": "^3.2.0",
+    "source-map-loader": "^0.2.4",
+    "style-loader": "^1.0.0",
+    "ts-loader": "^6.0.4",
+    "typescript": "^3.6.2",
+    "typescript-lit-html-plugin": "^0.9.0",
+    "webpack": "^4.41.2",
+    "webpack-cli": "^3.3.10",
+    "webpack-dev-server": "^3.8.0"
+  }
+}
