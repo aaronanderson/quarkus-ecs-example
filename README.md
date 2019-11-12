@@ -68,7 +68,7 @@ Perform the following to build a docker image of the application and upload it t
 ```
 mvn package
 docker build -f src/main/docker/Dockerfile.jvm -t quarkus/quarkus-ecs-example-jvm .
-docker tag quarkus/intworkspace-jvm 999999999999.dkr.ecr.us-west-1.amazonaws.com/quarkus-ecs-example
+docker tag quarkus/quarkus-ecs-example-jvm 999999999999.dkr.ecr.us-west-1.amazonaws.com/quarkus-ecs-example:latest
 aws ecr get-login --no-include-email --region us-west-1
 ```
 copy and paste generated docker login command. Confirm authentication.
@@ -164,6 +164,8 @@ aws ec2 associate-route-table  --subnet-id subnet-06219c0dd5c1667f3 --route-tabl
 
 
 ```
+
+If there are any problems with outbound requests to the Internet confirm the routing table configured above is set as the main routing table.
 
 ### Route 53
 I created a single hosted zone for my main domain name through the UI. 
