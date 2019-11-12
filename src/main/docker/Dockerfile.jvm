@@ -1,0 +1,22 @@
+####
+# This Dockerfile is used in order to build a container that runs the Quarkus application in JVM mode
+#
+# Before building the docker image run:
+#
+# mvn package
+#
+# Then, build the image with:
+#
+# docker build -f src/main/docker/Dockerfile.jvm -t quarkus/quarkus-ecs-example-jvm .
+#
+# Then run the container using:
+#
+# docker run -i --rm -p 8080:8080 quarkus/intworkspace-jvm
+#
+###
+#https://hub.docker.com/r/adoptopenjdk/openjdk13
+FROM adoptopenjdk/openjdk13:latest
+RUN mkdir /opt/app
+COPY target/lib/* /opt/app/lib/
+COPY target/*-runner.jar /opt/app/quarkus-ecs-example.jar
+CMD ["java", "-Dquarkus.http.host=0.0.0.0", "-Djava.util.logging.manager=org.jboss.logmanager.LogManager", "-jar", "/opt/app/quarkus-ecs-example.jar"]
