@@ -21,15 +21,15 @@ This example is a simple web component and React based application that interact
 
 Currently there is a defect with [SmallRye JWT](https://github.com/smallrye/smallrye-jwt/issues/143) that will soon be fixed but requires a local patch to work around.
 
-This example does not the [Quarkus GraalVM native image](https://quarkus.io/guides/building-native-image) option. GraalVM only supports JDK 8 at the moment and it requires all classes to be registered at build time which can be tedious for moderate applications. Instead the application runs in a traditional JVM in a Docker image with JDK 13.
+This example does not utilize the [Quarkus GraalVM native image](https://quarkus.io/guides/building-native-image) feature. GraalVM only supports JDK 8 at the moment and it requires all classes to be registered at build time which can be tedious for moderately sized applications applications. Instead the application runs in a traditional JVM in a Docker image with JDK 13.
 
-The ECS configuration below references qa in the configuration signifying the setup is for a staging environment. This naming convention is not an AWS concept but is used for a best practice of creating multiple testing environments beyond a production configuration. A production configuration can be created by setting the docker environment variable to prod and then re-running all the configuration in the ECS section starting at the ALB subsection and removing the qa- prefix.  
+The ECS configuration below references qa in the configuration signifying the setup is for a staging environment. This naming convention is not an AWS concept but is used for the application development best practice of creating multiple testing environments beyond a production configuration. A production configuration can be created by setting the docker environment variable to prod and then re-running all the configuration in the ECS section starting at the ALB subsection and removing the qa- prefix.  
 
 example.com is used as a placeholder for the application's root domain name. Replace this value with the registered domain name to be used for testing.
 
 ## Environment
 
-* Operating System - This example was tested with Ubuntu 19.10
+* Operating System - This example was built and tested with Ubuntu 19.10
 * JDK -  [OpenJDK 13](https://jdk.java.net/13/)
 * IDE -  [Eclipse IDE](https://www.eclipse.org/downloads/packages/release/2019-09/r/eclipse-ide-enterprise-java-developers)
 * Docker - [Install](https://docs.docker.com/install/linux/docker-ce/ubuntu/) 
