@@ -25,6 +25,8 @@ This example does not the [Quarkus GraalVM native image](https://quarkus.io/guid
 
 The ECS configuration below references qa in the configuration signifying the setup is for a staging environment. This naming convention is not an AWS concept but is used for a best practice of creating multiple testing environments beyond a production configuration. A production configuration can be created by setting the docker environment variable to prod and then re-running all the configuration in the ECS section starting at the ALB subsection and removing the qa- prefix.  
 
+example.com is used as a placeholder for the application's root domain name. Replace this value with the registered domain name to be used for testing.
+
 ## Environment
 
 * Operating System - This example was tested with Ubuntu 19.10
@@ -36,6 +38,9 @@ The ECS configuration below references qa in the configuration signifying the se
 * Apache Maven
 * AWS CLI - All configurations were deployed to the AWS us-west-1 region.
 
+## Application Configuration
+
+Edit the `src/main/resources/application.properties` file and change the OIDC issuer value to the appropriate value. Later on the `src/main/resources/META-INF/aws-jwt.pem` file will need to be updated with the correct EC Public Key for the ALB authentication service.  
 
 ## Quarkus Build
 
@@ -61,25 +66,14 @@ Access [http://localhost:5000](http://localhost:5000) to confirm the presentatio
 
 
 
-### Docker
+## OIDC
+Configure a client on the OIDC IDP. Register 
 
-Perform the following to build a docker image of the application and upload it to AWS [ECR](https://aws.amazon.com/ecr/) 
+`https://qa-quarkus-ecs-example.example.com/oauth2/idpresponse`
 
-```
-mvn package
-docker build -f src/main/docker/Dockerfile.jvm -t quarkus/quarkus-ecs-example-jvm .
-docker tag quarkus/quarkus-ecs-example-jvm 999999999999.dkr.ecr.us-west-1.amazonaws.com/quarkus-ecs-example:latest
-aws ecr get-login --no-include-email --region us-west-1
-```
-copy and paste generated docker login command. Confirm authentication.
+Record the client ID, secret, OAuth 2.0 URLs, and issuer values for future reference.
 
-`docker push 999999999999.dkr.ecr.us-west-1.amazonaws.com/quarkus-ecs-example:latest`
-
-
-
-
-
-##AWS Setup
+## AWS Setup
 
 ### Services Used
 Here is a list of the services that will be used:
@@ -192,7 +186,7 @@ aws ec2 authorize-security-group-ingress --group-id sg-0b8fe3e5f1b7c8876 --proto
 
 aws elbv2 create-load-balancer --name quarkus-ecs-example --type application --scheme internet-facing  --security-groups sg-0b8fe3e5f1b7c8876 --subnets subnet-064aeec2a4f4c7618 subnet-06219c0dd5c1667f3 
 
-aws elbv2 create-listener --load-balancer-arn arn:aws:elasticloadbalancing:us-west-1:999999999999:loadbalancer/app/quarkus-ecs-example/8649d45ac4b2b99b --protocol HTTPS --port 443  --certificates CertificateArn=arn:aws:acm:us-west-1:999999999999:certificate/8c09d4a0-5be5-496f-8251-940cb603cbb3 --default-actions Type=redirect,Order=1,RedirectConfig="{Protocol=HTTPS,Port=443,Host=quarkus.io,Path=/,Query=,StatusCode=HTTP_301}"
+aws elbv2 create-listener --load-balancer-arn arn:aws:elasticloadbalancing:us-west-1:999999999999:loadbalancer/app/quarkus-ecs-example/8649d45ac4b2b99b --protocol HTTPS --port 443  --certificates CertificateArn=arn:aws:acm:us-west-1:999999999999:certificate/fd6769e8-061f-11ea-8d71-362b9e155667 --default-actions Type=redirect,Order=1,RedirectConfig="{Protocol=HTTPS,Port=443,Host=quarkus.io,Path=/,Query=,StatusCode=HTTP_301}"
 
 aws route53 change-resource-record-sets --hosted-zone-id XXXXXXXXXX --change-batch file://route53-example.json
 ```
@@ -233,6 +227,24 @@ aws ec2 authorize-security-group-ingress --group-id sg-0b8fe3e5f1b7c8876 --proto
 ### ECR
 
 `aws ecr create-repository --repository-name quarkus-ecs-example --region us-west-1`
+
+### Docker
+
+Perform the following to build a docker image of the application and upload it to AWS [ECR](https://aws.amazon.com/ecr/) 
+
+```
+mvn package
+docker build -f src/main/docker/Dockerfile.jvm -t quarkus/quarkus-ecs-example-jvm .
+docker tag quarkus/quarkus-ecs-example-jvm 999999999999.dkr.ecr.us-west-1.amazonaws.com/quarkus-ecs-example:latest
+aws ecr get-login --no-include-email --region us-west-1 > /tmp/docker_login.sh
+chmod +x /tmp/docker_login.sh
+/tmp/docker_login.sh
+docker push 999999999999.dkr.ecr.us-west-1.amazonaws.com/quarkus-ecs-example:latest
+```
+
+Optionally run the docker image locally:
+
+`docker run -i --rm -p 5000:5000 quarkus/quarkus-ecs-example-jvm`
 
 
 ### ECS - Fargate
@@ -468,7 +480,7 @@ scaling-policy.json:
 
 ```
 
-Finally add a Route 53 DNS entry for the subdomain pointed at the ALB. This task can easily be done in the UI as well.
+Add a Route 53 DNS entry for the subdomain pointed at the ALB. This task can easily be done in the UI as well. It may take several minutes for the DNS change to propagate. 
 
 `aws route53 change-resource-record-sets --hosted-zone-id XXXXXXXXXXXX --change-batch file://route53-qa-quarkus-ecs-example.json` 
 
@@ -494,6 +506,100 @@ route53-qa-quarkus-ecs-example.json:
 }
 ```
 
+Attempt to access the service. A HTTP 401 error code will be returned because the aws-jwt.pem file included in the application does not match the recently created ALB authentication key used to sign the JWT. Unfortunately there doesn't seem to be a way to obtain this key ID advance beyond reading it from a [generated JWT](https://docs.aws.amazon.com/elasticloadbalancing/latest/application/listener-authenticate-users.html) Navigate to the CloudWatch service, Logs, /ecs/qa-quarkus-ecs-example-task, and then click the top most recent log stream. Find a JWT error log entry and look for this:
+
+```
+JsonWebSignature
+{
+    "typ": "JWT",
+    "kid": "beec8bbc-84e0-4736-9745-a6bd96fde712",
+    "alg": "ES256",
+    "iss": "https://example.okta.com",
+    "client": "a2YDVG5DY6O3L1VeQGjT",
+    "signer": "arn:aws:elasticloadbalancing:us-west-1:999999999999:loadbalancer/app/quarkus-ecs-example/8649d45ac4b2b99b",
+    "exp": 1573543385
+}
+```
+
+Copy the kid value and replace it in this URL adjusting for the AWS region if needed:
+
+`https://public-keys.auth.elb.us-west-1.amazonaws.com/beec8bbc-84e0-4736-9745-a6bd96fde712`
+
+Access the URL and a public key should be displayed:
+
+```
+-----BEGIN PUBLIC KEY-----
+MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEAcO4kEtYgXZZdyCvhaOMjAFLTqN0
+DtAEB6AvI2T4KfYNr2VFeGjMwo0pCaDw3S6kKDLOSUkOD5cyAgPzCpZ9lw==
+-----END PUBLIC KEY-----
+```
+
+Copy this key into the contents of the `src/main/resources/META-INF/aws-jwt.pem` file.
+
+Use the docker [docker build instructions](#docker) above to repackage the project using maven and push the new version to ECR.
+
 To restart the service from the CLI issue the following command to force a deployment:
 
 `aws ecs update-service --force-new-deployment --service qa-quarkus-ecs-example-service --cluster qa-quarkus-ecs-example-cluster`
+
+
+### Cleanup 
+
+Once testing on the example application is complete the following commands can be run to remove and delete all of it's AWS configuration.
+
+```
+aws ecs update-service --cluster quarkus-ecs-example-cluster --service qa-quarkus-ecs-example-service --desired-count 0
+
+aws ecs delete-service --cluster quarkus-ecs-example-cluster --service qa-quarkus-ecs-example-service
+
+aws ecs deregister-task-definition --task-definition qa-quarkus-ecs-example-task:1
+
+aws ecs delete-cluster --cluster quarkus-ecs-example-cluster
+
+aws logs delete-log-group --log-group-name /ecs/qa-quarkus-ecs-example-task
+
+aws elbv2 delete-load-balancer --load-balancer-arn arn:aws:elasticloadbalancing:us-west-1:999999999999:loadbalancer/app/quarkus-ecs-example/8649d45ac4b2b99b
+
+
+aws elbv2 delete-target-group --target-group-arn arn:aws:elasticloadbalancing:us-west-1:999999999999:targetgroup/qa-quarkus-ecs-example/0c2469b847883e7e
+
+#qa-quarkus-ecs-example subdomain
+aws acm delete-certificate --certificate-arn arn:aws:acm:us-west-1:999999999999:certificate/2670946f-8aed-4ea0-873f-40f837545d76 
+
+#example.com root domain
+aws acm delete-certificate --certificate-arn arn:aws:acm:us-west-1:999999999999:certificate/fd6769e8-061f-11ea-8d71-362b9e155667 
+
+#use same file as above be replace the CREATE action with DELETE. Or just delete it in the UI
+aws route53 change-resource-record-sets --hosted-zone-id XXXXXXXXXX --change-batch file://route53-example-delete.json
+
+aws route53 change-resource-record-sets --hosted-zone-id XXXXXXXXXXXX --change-batch file://route53-qa-quarkus-ecs-example-delete.json
+
+#ecs 
+aws ec2 delete-security-group --group-id sg-0523d7656f12bbb54
+
+#alb
+aws ec2 delete-security-group --group-id sg-0b8fe3e5f1b7c8876
+
+aws iam delete-role --role-name ecs-task-quarkus-ecs-example-service-role
+
+aws ecr list-images --repository-name quarkus-ecs-example
+
+aws ecr batch-delete-image --repository-name quarkus-ecs-example --image-ids imageTag=latest imageDigest=sha256:556352a31c0ec078ef6fd6b62cdc63272b1aa50c87994b0337a1a9aad4ff9e33
+
+aws ecr delete-repository --repository-name quarkus-ecs-example
+
+aws ec2 delete-subnet --subnet-id subnet-064aeec2a4f4c7618
+
+aws ec2 delete-subnet --subnet-id subnet-06219c0dd5c1667f3
+
+aws ec2 delete-route --route-table-id rtb-084d3b649446d2a47 --destination-cidr-block "0.0.0.0/0" 
+
+aws ec2 detach-internet-gateway --internet-gateway-id igw-0de905c445f0b1990 --vpc-id vpc-09965b6122d79cb4d
+
+aws ec2 delete-internet-gateway --internet-gateway-id igw-0de905c445f0b1990
+
+aws ec2 delete-vpc --vpc-id vpc-09965b6122d79cb4d
+
+#route table gets deleted with VPC
+
+``` 

@@ -5,3 +5,7 @@ yarn-error.log*
 yarn.lock
 package-lock.json
 src/main/resources/META-INF
+.classpath
+.project
+.settings
+
